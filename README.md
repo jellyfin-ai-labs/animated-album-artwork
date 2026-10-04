@@ -9,9 +9,9 @@ The static cover stays visible while the video loads, when playback fails, and w
 - This project targets **.NET 10** and references **Jellyfin 12.1.0**. Its package ABI is `12.1.0.0`. Use a compatible server; older Jellyfin versions are not targeted by this build.
 - The built-in presentation applies to **album detail pages in Jellyfin Web**. Other clients can use the API below to implement their own presentation. Album grids and now-playing screens are not animated by this script.
 - Albums must have a local filesystem directory accessible to the Jellyfin server. Discovery checks that directory, without searching subdirectories.
-- Videos are served unchanged. The plugin does not download, generate, convert, or transcode artwork. Playback depends on the browser's codec support.
+- By default, the plugin prepares smaller, silent H.264 MP4 playback copies using Jellyfin's configured FFmpeg. Originals are left unchanged. Disable **Generate smaller playback copies** to serve originals exclusively.
 - For MP4/MOV files with MSE-compatible codecs, the web script starts playback using authenticated byte-range requests and Media Source Extensions. Ordinary MP4 uses 1 MiB requests and is fragmented locally; already-fragmented MP4 uses a 1 MiB metadata lookup followed by 4 MiB sequential requests. Sequence-mode playback normalizes nonzero timestamps and repeated initialization sections. Ordinary MP4 metadata can be read from the end, so `faststart` is helpful but not required. The token stays in an authorization header; HTTP private-network installations do not need cookies or certificates.
-- Playback buffering targets eight seconds ahead and retains about five seconds behind, plus the current segment/keyframe boundaries. Old frames and parser sample data are released; loops/seeks refill evicted frames. Large files no longer require a complete download before playback, but still need sufficient bandwidth for their encoded bitrate. No server transcoding or quality reduction is performed.
+- Playback buffering targets eight seconds ahead and retains about five seconds behind, plus the current segment/keyframe boundaries. Old frames and parser sample data are released; loops/seeks refill evicted frames. Large files no longer require a complete download before playback, but still need sufficient bandwidth for their encoded bitrate. Playback copies reduce bitrate and resolution; original playback preserves the source quality.
 - WebM, browsers without MSE, and codecs unsupported by MSE retain the header-authenticated full-download fallback. Fragmented MP4 must have its initialization section at the beginning; files requiring a metadata jump also use the fallback. Browser codec support still determines whether they can play. Failed requests or decoding leave the static cover visible.
 
 ## Build and install
@@ -71,8 +71,20 @@ Open Dashboard → Plugins → Animated Album Art to change these settings:
 | Serve motion artwork | `Enabled` | `true` | When off, album info reports no artwork and video/diagnostics requests return `404`. |
 | Allowed extensions | `AllowedExtensions` | `.mp4,.mov` | Comma-separated priority order. Supported values: `.mp4`, `.m4v`, `.mov`, `.webm`; unsupported entries are ignored. |
 | Show motion artwork in Jellyfin Web | `InjectWebClient` | `true` | Injects the client script into the server-hosted web index. Reload the browser after changing it. |
+| Generate smaller playback copies | `GeneratePlaybackCopies` | `true` | Queue background conversion on artwork lookup; serve a ready cached copy on subsequent visits. |
+| Playback cache limit (MiB) | `PlaybackCacheMiB` | `1024` | Clamped to 16–102400. Enforced at startup and before publishing copies; oldest copies are evicted first. |
 
 Disabling web injection leaves the album API available. Injection applies to Jellyfin Web served by this server; a separately hosted web client must load the script itself.
+
+## Playback copies
+
+Copies live under `<Jellyfin cache>/animated-album-art/`, outside the music library. They contain no audio and use H.264, `yuv420p`, CRF 23 with a 4 Mbps VBV ceiling, at most 720 pixels on either edge without upscaling, at most 30 fps, approximately two-second keyframe spacing, and MP4 metadata at the beginning (`faststart`). Encoding is lossy. A frame-based constant-rate timeline normalizes nonzero/discontinuous timestamps and retains decoded repeated sections; variable-rate sources may have a different duration. No source sections are intentionally deduplicated or trimmed.
+
+A single worker uses two encoder threads, a 128-job bounded queue, and a ten-minute encoding/validation timeout. Concurrent viewers share work. A file is published by atomic rename only after format, duration, decoded-frame-count checks and a complete error-free decode. Independently initialized MP4 sections are temporarily split and joined through FFmpeg’s concat demuxer to avoid dropped frames. Replacement during conversion discards the result. Keys include the source path, size, modification time, and encoding-profile version; ready copies survive server restarts. Failed jobs retain original playback and back off for 30 minutes. Missing FFmpeg/libx264, unreadable sources, or an unwritable cache do not block original artwork.
+
+While generation is pending, playback uses the original. Navigate away/back or reload to select the finished copy. Under Dashboard → Scheduled Tasks → Animated Album Art, **Prepare artwork cache** prepares discovered album sidecars ahead of viewing. It has no default trigger; administrators may run it or configure a schedule. Cancelling the task stops scheduling/waiting; an already shared conversion may finish in the background.
+
+Cache cleanup runs at startup and on publication, removes interrupted temporary files at startup, evicts oldest copies to respect the configured byte limit, and expires copies after 30 days. Temporary conversion output, and split inputs for repeated MP4 sections, can consume additional disk space. Files are disposable and regenerate when requested. Eviction may invalidate an active playback revision; originals are never deleted. Clear the plugin's cache directory with Jellyfin stopped if a complete cache reset is needed.
 
 ## Server API
 
@@ -81,7 +93,7 @@ These are all the routes added by this plugin. Prefix paths with the Jellyfin se
 | Method | Path | Access | Result |
 | --- | --- | --- | --- |
 | `GET` | `/AnimatedAlbumArt/Albums/{albumId}` | Authenticated user with album access | JSON describing available motion artwork. |
-| `GET`, `HEAD` | `/AnimatedAlbumArt/Albums/{albumId}/Video` | Authenticated user with album access | Original video bytes, or headers only for `HEAD`. |
+| `GET`, `HEAD` | `/AnimatedAlbumArt/Albums/{albumId}/Video` | Authenticated user with album access | Selected playback bytes, or headers only for `HEAD`. |
 | `GET` | `/AnimatedAlbumArt/Albums/{albumId}/Diagnostics` | Administrator with album access | JSON containing the file path and advisory format checks. |
 | `GET` | `/AnimatedAlbumArt/ClientScript` | Public; no authentication | Bundled Jellyfin Web JavaScript. |
 
@@ -110,11 +122,13 @@ Example `200` response (tag and size are illustrative):
   "HasMotionArt": true,
   "ContentType": "video/mp4",
   "Size": 1048576,
-  "Tag": "100000-8de000000000000"
+  "Tag": "100000-8de000000000000",
+  "IsOptimized": true,
+  "OriginalSize": 167576288
 }
 ```
 
-`Size` is the file size in bytes. `Tag` identifies the file using its size and modification time and can be used to invalidate a client cache. For a visible album with no enabled sidecar, the response is still `200`, with `HasMotionArt: false` and `ContentType`, `Size`, and `Tag` set to `null` (or omitted if the server is configured to omit null fields).
+`Size`, `ContentType`, and `Tag` describe the selected playback file. `IsOptimized` indicates a generated copy; `OriginalSize` describes the original sidecar. `Tag` identifies the file using its size and modification time and can be used to invalidate a client cache. For a visible album with no enabled sidecar, the response is still `200`, with `HasMotionArt: false` and `ContentType`, `Size`, and `Tag` set to `null` (or omitted if the server is configured to omit null fields).
 
 ### GET or HEAD video
 
@@ -125,7 +139,7 @@ curl -H "Authorization: MediaBrowser Token=\"$JELLYFIN_TOKEN\"" \
   --output artwork-part.bin
 ```
 
-The response content type is `video/mp4` for `.mp4`/`.m4v`, `video/quicktime` for `.mov`, or `video/webm` for `.webm`. Responses include `ETag`, `Last-Modified`, and `Cache-Control: private, no-cache`. Use `If-None-Match` or `If-Modified-Since` to revalidate cached artwork.
+Generated copies have content type `video/mp4`. For originals, the response content type is `video/mp4` for `.mp4`/`.m4v`, `video/quicktime` for `.mov`, or `video/webm` for `.webm`. Responses include `ETag`, `Last-Modified`, and `Cache-Control: private, no-cache`. Use `If-None-Match` or `If-Modified-Since` to revalidate cached artwork.
 
 | Status | Meaning |
 | --- | --- |
@@ -133,9 +147,10 @@ The response content type is `video/mp4` for `.mp4`/`.m4v`, `video/quicktime` fo
 | `206` | Requested byte range, with `Content-Range`. |
 | `304` | Cached file is unchanged according to a conditional request. |
 | `404` | No enabled sidecar, or the album is unavailable to the caller. |
+| `412` | The requested `tag` no longer identifies an available playback revision. Refresh album metadata. |
 | `416` | Requested byte range cannot be satisfied. |
 
-The web client adds a `tag` query parameter for cache identification. The server does not require or validate this parameter; it always finds the current file and emits the current ETag.
+The web client adds a `tag` query parameter to pin the selected revision. An original tag continues serving the original even if a copy finishes generating mid-playback. A cached tag serves that copy. Replaced originals, evicted copies, or disabled optimization can invalidate tags and return `412`; the client leaves the static cover visible until navigation/reload obtains current metadata. Without `tag`, the endpoint selects the ready copy or original. All selections still require access to the current album and an enabled original sidecar.
 
 ### GET diagnostics
 
@@ -191,6 +206,7 @@ The local development environment requires Docker with Compose, .NET 10, `ffmpeg
 dev/make-test-library.sh   # generate six sample albums
 dev/run.sh                # build, install, start/restart, and configure Jellyfin
 dev/test-server.sh        # run the server integration checks
+python3 dev/test-playback-cache.py # real conversion, cache and scheduled-task checks
 ```
 
 Open `http://localhost:8096`. The development accounts are `admin` / `admin` and `limited` / `limited`; the limited user has no library access. This setup is for a local test server. Generated media, configuration, and tokens live in ignored `dev/data/`.

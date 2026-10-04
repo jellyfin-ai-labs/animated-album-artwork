@@ -38,6 +38,12 @@ public sealed class ProbeStreamInfo
     public string? AverageFrameRate { get; set; }
 
     /// <summary>
+    /// Gets or sets the decoded frame count when requested.
+    /// </summary>
+    [JsonPropertyName("nb_read_frames")]
+    public string? ReadFrames { get; set; }
+
+    /// <summary>
     /// Gets or sets the sample aspect ratio, e.g. <c>1:1</c>.
     /// </summary>
     [JsonPropertyName("sample_aspect_ratio")]

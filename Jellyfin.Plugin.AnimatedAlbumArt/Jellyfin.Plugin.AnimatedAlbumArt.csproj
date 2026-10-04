@@ -10,6 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Jellyfin.Plugin.AnimatedAlbumArt.Tests" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 

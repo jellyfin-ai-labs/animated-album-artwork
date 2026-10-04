@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.AnimatedAlbumArt.Diagnostics;
 using Jellyfin.Plugin.AnimatedAlbumArt.MotionArt;
+using Jellyfin.Plugin.AnimatedAlbumArt.Playback;
 using MediaBrowser.Controller.Entities.Audio;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Net;
@@ -28,6 +29,7 @@ public class AnimatedAlbumArtController : ControllerBase
     private readonly IAuthorizationContext _authorizationContext;
     private readonly MotionArtLocator _locator;
     private readonly MotionArtProbe _probe;
+    private readonly PlaybackCopyCache _cache;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="AnimatedAlbumArtController"/> class.
@@ -36,16 +38,19 @@ public class AnimatedAlbumArtController : ControllerBase
     /// <param name="authorizationContext">Instance of the <see cref="IAuthorizationContext"/> interface.</param>
     /// <param name="locator">The motion artwork locator.</param>
     /// <param name="probe">The motion artwork probe.</param>
+    /// <param name="cache">The playback cache.</param>
     public AnimatedAlbumArtController(
         ILibraryManager libraryManager,
         IAuthorizationContext authorizationContext,
         MotionArtLocator locator,
-        MotionArtProbe probe)
+        MotionArtProbe probe,
+        PlaybackCopyCache cache)
     {
         _libraryManager = libraryManager;
         _authorizationContext = authorizationContext;
         _locator = locator;
         _probe = probe;
+        _cache = cache;
     }
 
     /// <summary>
@@ -66,7 +71,8 @@ public class AnimatedAlbumArtController : ControllerBase
             return NotFound();
         }
 
-        var file = _locator.Find(album);
+        var original = _locator.Find(album);
+        var file = original is null ? null : _cache.Select(original);
         return new MotionArtInfo
         {
             AlbumId = album.Id,
@@ -74,6 +80,8 @@ public class AnimatedAlbumArtController : ControllerBase
             ContentType = file?.ContentType,
             Size = file?.Length,
             Tag = file?.Tag,
+            IsOptimized = file is not null && file.Path != original?.Path,
+            OriginalSize = original?.Length,
         };
     }
 
@@ -81,22 +89,31 @@ public class AnimatedAlbumArtController : ControllerBase
     /// Streams an album's motion artwork. Supports byte ranges and conditional requests.
     /// </summary>
     /// <param name="albumId">The album id.</param>
+    /// <param name="tag">The optional playback revision to pin.</param>
     /// <response code="200">The whole video file.</response>
     /// <response code="206">Part of the video file.</response>
     /// <response code="404">No motion artwork, or the user cannot access the album.</response>
+    /// <response code="412">The requested playback revision is no longer available.</response>
     /// <returns>The video file.</returns>
     [HttpGet("Albums/{albumId}/Video")]
     [HttpHead("Albums/{albumId}/Video")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status206PartialContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult> GetVideo([FromRoute] Guid albumId)
+    [ProducesResponseType(StatusCodes.Status412PreconditionFailed)]
+    public async Task<ActionResult> GetVideo([FromRoute] Guid albumId, [FromQuery] string? tag = null)
     {
         var album = await GetVisibleAlbum(albumId).ConfigureAwait(false);
-        var file = album is null ? null : _locator.Find(album);
-        if (file is null)
+        var original = album is null ? null : _locator.Find(album);
+        if (original is null)
         {
             return NotFound();
+        }
+
+        var file = _cache.Select(original, tag);
+        if (file is null)
+        {
+            return StatusCode(StatusCodes.Status412PreconditionFailed);
         }
 
         // Revalidate on every use so a replaced sidecar is picked up; unchanged files get a 304.

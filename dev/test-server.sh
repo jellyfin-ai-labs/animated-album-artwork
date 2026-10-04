@@ -29,6 +29,15 @@ set_config() { # jq filter applied to the plugin configuration
     "$base/Plugins/$plugin_id/Configuration" -d "$config"
 }
 
+original_config="$(curl -s "${admin[@]}" "$base/Plugins/$plugin_id/Configuration")"
+restore_config() {
+  curl -s -o /dev/null "${admin[@]}" -H 'Content-Type: application/json' -X POST \
+    "$base/Plugins/$plugin_id/Configuration" -d "$original_config"
+}
+trap restore_config EXIT
+# Discovery and byte identity checks below intentionally exercise originals.
+set_config '.GeneratePlaybackCopies = false'
+
 motion="$(album_id "Motion Album")"
 mov="$(album_id "MOV Album")"
 both="$(album_id "Both Album")"

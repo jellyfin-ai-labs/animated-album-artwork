@@ -38,6 +38,18 @@
                             Browsers must reload the page after changing this.
                         </div>
                     </div>
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="GeneratePlaybackCopies" name="GeneratePlaybackCopies" type="checkbox" is="emby-checkbox" />
+                            <span>Generate smaller playback copies</span>
+                        </label>
+                        <div class="fieldDescription checkboxFieldDescription">Creates silent H.264 copies in Jellyfin’s cache; originals stay in your library. Generation runs in the background. Use Scheduled Tasks → Prepare artwork cache to prepare albums ahead of time.</div>
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="PlaybackCacheMiB">Playback cache limit (MiB)</label>
+                        <input id="PlaybackCacheMiB" name="PlaybackCacheMiB" type="number" min="16" max="102400" required is="emby-input" />
+                        <div class="fieldDescription">Oldest copies are removed when the limit is reached. Copies expire after 30 days; they can be generated again.</div>
+                    </div>
                     <div>
                         <button is="emby-button" type="submit" class="raised button-submit block emby-button">
                             <span>Save</span>
@@ -58,6 +70,8 @@
                         document.querySelector('#Enabled').checked = config.Enabled;
                         document.querySelector('#AllowedExtensions').value = config.AllowedExtensions;
                         document.querySelector('#InjectWebClient').checked = config.InjectWebClient;
+                        document.querySelector('#GeneratePlaybackCopies').checked = config.GeneratePlaybackCopies;
+                        document.querySelector('#PlaybackCacheMiB').value = config.PlaybackCacheMiB;
                         Dashboard.hideLoadingMsg();
                     });
                 });
@@ -69,6 +83,8 @@
                     config.Enabled = document.querySelector('#Enabled').checked;
                     config.AllowedExtensions = document.querySelector('#AllowedExtensions').value;
                     config.InjectWebClient = document.querySelector('#InjectWebClient').checked;
+                    config.GeneratePlaybackCopies = document.querySelector('#GeneratePlaybackCopies').checked;
+                    config.PlaybackCacheMiB = Number(document.querySelector('#PlaybackCacheMiB').value);
                     ApiClient.updatePluginConfiguration(AnimatedAlbumArtConfig.pluginUniqueId, config).then(function (result) {
                         Dashboard.processPluginConfigurationUpdateResult(result);
                     });

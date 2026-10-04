@@ -22,4 +22,14 @@ public class PluginConfiguration : BasePluginConfiguration
     /// Gets or sets a value indicating whether the bundled client script is injected into Jellyfin Web.
     /// </summary>
     public bool InjectWebClient { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether smaller playback copies are generated in the cache.
+    /// </summary>
+    public bool GeneratePlaybackCopies { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets the playback cache limit in MiB, clamped to 16–102400.
+    /// </summary>
+    public int PlaybackCacheMiB { get; set; } = 1024;
 }

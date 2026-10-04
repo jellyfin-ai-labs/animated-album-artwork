@@ -29,9 +29,10 @@ public class MotionArtProbe
     /// </summary>
     /// <param name="path">The file path.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
+    /// <param name="countFrames">Whether to decode and count frames for playback-copy validation.</param>
     /// <returns>The parsed probe output.</returns>
     /// <exception cref="InvalidOperationException">ffprobe is unavailable or failed.</exception>
-    public async Task<ProbeResult> ProbeAsync(string path, CancellationToken cancellationToken)
+    public async Task<ProbeResult> ProbeAsync(string path, CancellationToken cancellationToken, bool countFrames = false)
     {
         var probePath = _mediaEncoder.ProbePath;
         if (string.IsNullOrEmpty(probePath))
@@ -46,6 +47,11 @@ public class MotionArtProbe
             UseShellExecute = false,
             CreateNoWindow = true,
         };
+        if (countFrames)
+        {
+            startInfo.ArgumentList.Add("-count_frames");
+        }
+
         foreach (var argument in new[] { "-v", "error", "-print_format", "json", "-show_format", "-show_streams", path })
         {
             startInfo.ArgumentList.Add(argument);

@@ -31,4 +31,14 @@ public sealed class MotionArtInfo
     /// Gets or sets a tag that changes when the file changes; clients may use it to bust caches.
     /// </summary>
     public string? Tag { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether playback uses a generated copy.
+    /// </summary>
+    public bool IsOptimized { get; set; }
+
+    /// <summary>
+    /// Gets or sets the original artwork size in bytes.
+    /// </summary>
+    public long? OriginalSize { get; set; }
 }
