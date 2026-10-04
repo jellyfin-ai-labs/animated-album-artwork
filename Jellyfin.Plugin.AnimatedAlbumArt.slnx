@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Jellyfin.Plugin.AnimatedAlbumArt/Jellyfin.Plugin.AnimatedAlbumArt.csproj" />
+  <Project Path="Jellyfin.Plugin.AnimatedAlbumArt.Tests/Jellyfin.Plugin.AnimatedAlbumArt.Tests.csproj" />
+</Solution>

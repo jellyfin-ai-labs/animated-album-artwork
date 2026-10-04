@@ -1,13 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using Jellyfin.Plugin.Template.Configuration;
+using Jellyfin.Plugin.AnimatedAlbumArt.Configuration;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Plugins;
 using MediaBrowser.Model.Plugins;
 using MediaBrowser.Model.Serialization;
 
-namespace Jellyfin.Plugin.Template;
+namespace Jellyfin.Plugin.AnimatedAlbumArt;
 
 /// <summary>
 /// The main plugin.
@@ -26,10 +26,13 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     }
 
     /// <inheritdoc />
-    public override string Name => "Template";
+    public override string Name => "Animated Album Art";
 
     /// <inheritdoc />
-    public override Guid Id => Guid.Parse("eb5d7894-8eef-4b36-aa6f-5d124e828ce1");
+    public override Guid Id => Guid.Parse("0c8d1d43-0ad6-4d51-b5ac-b39b6f46fbcb");
+
+    /// <inheritdoc />
+    public override string Description => "Discovers cover-motion.mp4/.mov sidecars in album folders and serves them as animated album artwork.";
 
     /// <summary>
     /// Gets the current plugin instance.

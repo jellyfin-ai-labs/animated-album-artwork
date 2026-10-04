@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Animated Album Art</title>
+</head>
+<body>
+    <div id="AnimatedAlbumArtConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-checkbox">
+        <div data-role="content">
+            <div class="content-primary">
+                <form id="AnimatedAlbumArtConfigForm">
+                    <div class="verticalSection">
+                        <h2 class="sectionTitle">Animated Album Art</h2>
+                        <p>
+                            Put a silent looping video named <code>cover-motion.mp4</code> or <code>cover-motion.mov</code>
+                            in an album folder, next to its static cover. Changes are picked up immediately; no library scan is needed.
+                        </p>
+                    </div>
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="Enabled" name="Enabled" type="checkbox" is="emby-checkbox" />
+                            <span>Serve motion artwork</span>
+                        </label>
+                        <div class="fieldDescription checkboxFieldDescription">When off, every album reports no motion artwork.</div>
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="AllowedExtensions">Allowed extensions</label>
+                        <input id="AllowedExtensions" name="AllowedExtensions" type="text" is="emby-input" />
+                        <div class="fieldDescription">Comma separated, most preferred first. Supported: .mp4, .m4v, .mov, .webm.</div>
+                    </div>
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="InjectWebClient" name="InjectWebClient" type="checkbox" is="emby-checkbox" />
+                            <span>Show motion artwork in Jellyfin Web</span>
+                        </label>
+                        <div class="fieldDescription checkboxFieldDescription">
+                            Loads a small script into the web client that plays motion artwork on album pages.
+                            Browsers must reload the page after changing this.
+                        </div>
+                    </div>
+                    <div>
+                        <button is="emby-button" type="submit" class="raised button-submit block emby-button">
+                            <span>Save</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <script type="text/javascript">
+            var AnimatedAlbumArtConfig = {
+                pluginUniqueId: '0c8d1d43-0ad6-4d51-b5ac-b39b6f46fbcb'
+            };
+
+            document.querySelector('#AnimatedAlbumArtConfigPage')
+                .addEventListener('pageshow', function() {
+                    Dashboard.showLoadingMsg();
+                    ApiClient.getPluginConfiguration(AnimatedAlbumArtConfig.pluginUniqueId).then(function (config) {
+                        document.querySelector('#Enabled').checked = config.Enabled;
+                        document.querySelector('#AllowedExtensions').value = config.AllowedExtensions;
+                        document.querySelector('#InjectWebClient').checked = config.InjectWebClient;
+                        Dashboard.hideLoadingMsg();
+                    });
+                });
+
+            document.querySelector('#AnimatedAlbumArtConfigForm')
+                .addEventListener('submit', function(e) {
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(AnimatedAlbumArtConfig.pluginUniqueId).then(function (config) {
+                    config.Enabled = document.querySelector('#Enabled').checked;
+                    config.AllowedExtensions = document.querySelector('#AllowedExtensions').value;
+                    config.InjectWebClient = document.querySelector('#InjectWebClient').checked;
+                    ApiClient.updatePluginConfiguration(AnimatedAlbumArtConfig.pluginUniqueId, config).then(function (result) {
+                        Dashboard.processPluginConfigurationUpdateResult(result);
+                    });
+                });
+
+                e.preventDefault();
+                return false;
+            });
+        </script>
+    </div>
+</body>
+</html>

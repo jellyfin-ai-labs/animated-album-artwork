@@ -1,0 +1,13 @@
+# Local Jellyfin server for developing and testing the plugin.
+# Run dev/run.sh rather than using this file directly; it builds and installs the plugin first.
+services:
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    container_name: animated-album-art-jellyfin
+    ports:
+      - "8096:8096"
+    volumes:
+      - ./data/config:/config
+      - ./data/cache:/cache
+      - ./data/media:/media:ro
+    restart: "no"
