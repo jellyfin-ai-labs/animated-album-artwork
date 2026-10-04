@@ -1,16 +1,16 @@
 ---
-name: "Template"
-guid: "eb5d7894-8eef-4b36-aa6f-5d124e828ce1"
+name: "Animated Album Art"
+guid: "0c8d1d43-0ad6-4d51-b5ac-b39b6f46fbcb"
 version: "1.0.0.0"
-targetAbi: "10.11.0.0"
-framework: "net9.0"
-overview: "Short description about your plugin"
+targetAbi: "12.1.0.0"
+framework: "net10.0"
+overview: "Animated album artwork for Jellyfin"
 description: >
-  This is a longer description that can span more than one
-  line and include details about your plugin.
+  Discovers cover-motion.mp4/.mov sidecars in album folders and serves
+  them as animated album artwork.
 category: "General"
-owner: "jellyfin"
+owner: "jellyfin-ai-labs"
 artifacts:
-- "Jellyfin.Plugin.Template.dll"
+- "Jellyfin.Plugin.AnimatedAlbumArt.dll"
 changelog: >
-  changelog
+  Initial release.
