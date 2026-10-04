@@ -30,6 +30,7 @@ function installMediaSource(onEnd, appended = [], removed = []) {
             this.buffered = emptyRanges;
             queueMicrotask(() => this.dispatchEvent(new Event('updateend')));
         }
+        abort() {}
     }
     class MediaSource extends EventTarget {
         static isTypeSupported(mime) { return mime.includes('avc1.'); }
@@ -202,4 +203,45 @@ test('a synchronous append failure rejects without leaving an unhandled wait', a
     };
     serveRanges(bytes, []);
     await assert.rejects(streamMotionArt(new Video(), url, 'secret', info(bytes.length), new AbortController().signal), /Quota exceeded/);
+});
+
+test('streams an already-fragmented MP4 instead of using the complete-file fallback', async () => {
+    const bytes = await readFile(new URL('fixtures/fragmented.mp4', import.meta.url));
+    const controller = new AbortController();
+    const appended = [];
+    let mode;
+    let timestampOffset;
+    serveRanges(bytes, []);
+    installMediaSource(source => {
+        mode = source.buffer.mode;
+        timestampOffset = source.buffer.timestampOffset;
+        queueMicrotask(() => controller.abort());
+    }, appended);
+    await assert.rejects(streamMotionArt(new Video(), url, 'secret', info(bytes.length), controller.signal), { name: 'AbortError' });
+    assert.deepEqual(Buffer.concat(appended.map(data => Buffer.from(data))), bytes, 'feeds existing fragments directly into MSE');
+    assert.equal(mode, 'sequence', 'normalizes input timestamp discontinuities');
+    assert.equal(timestampOffset, 0, 'starts the sequence at zero');
+});
+
+test('resets a fragmented movie sequence and its partial parser state on looping', async () => {
+    const bytes = await readFile(new URL('fixtures/fragmented.mp4', import.meta.url));
+    const controller = new AbortController();
+    const video = new Video();
+    let loops = 0;
+    let aborts = 0;
+    serveRanges(bytes, []);
+    installMediaSource(source => queueMicrotask(() => {
+        assert.equal(source.buffer.timestampOffset, 0);
+        if (++loops === 2) {
+            controller.abort();
+        } else {
+            source.buffer.timestampOffset = 100;
+            source.buffer.buffered = { length: 1, start: () => 0, end: () => 2 };
+            source.buffer.abort = () => { aborts++; };
+            video.dispatchEvent(new Event('seeking'));
+        }
+    }));
+    await assert.rejects(streamMotionArt(video, url, 'secret', info(bytes.length), controller.signal), { name: 'AbortError' });
+    assert.equal(loops, 2);
+    assert.equal(aborts, 1);
 });

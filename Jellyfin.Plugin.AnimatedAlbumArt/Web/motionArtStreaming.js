@@ -1,6 +1,7 @@
 import { createFile } from 'mp4box';
 
 const CHUNK_SIZE = 1024 * 1024;
+const FRAGMENT_CHUNK_SIZE = 4 * CHUNK_SIZE;
 const BUFFER_AHEAD = 8;
 const BUFFER_BEHIND = 5;
 
@@ -55,8 +56,8 @@ function bufferedAhead(video) {
     return 0;
 }
 
-// A normal <video src> cannot set an Authorization header. Fetch byte ranges and
-// remux the selected video track into MSE segments locally instead. No key, grant,
+// A normal <video src> cannot set an Authorization header. Fetch byte ranges,
+// feed existing fragments to MSE, and remux ordinary MP4 locally. No key, grant,
 // or cookie is placed in a URL, and this works on HTTP private-network installs.
 export async function streamMotionArt(video, url, token, info, signal) {
     const MediaSourceClass = globalThis.MediaSource;
@@ -72,8 +73,8 @@ export async function streamMotionArt(video, url, token, info, signal) {
     let etag = info.Tag ? '"' + info.Tag + '"' : null;
     const onSeek = () => { seekTarget = video.currentTime; };
 
-    async function readRange(offset) {
-        const end = Math.min(offset + CHUNK_SIZE, info.Size) - 1;
+    async function readRange(offset, length = CHUNK_SIZE) {
+        const end = Math.min(offset + length, info.Size) - 1;
         const headers = {
             Authorization: 'MediaBrowser Token="' + token + '"',
             Range: 'bytes=' + offset + '-' + end
@@ -110,6 +111,7 @@ export async function streamMotionArt(video, url, token, info, signal) {
             // sample data. The MSE buffer keeps only a moving playback window.
             const file = createFile(true);
             const queue = [];
+            const prefix = [];
             let metadata;
             let parserError;
             let complete = false;
@@ -119,6 +121,7 @@ export async function streamMotionArt(video, url, token, info, signal) {
 
             while (!metadata && offset < info.Size) {
                 const data = await readRange(offset);
+                prefix.push(data);
                 const next = file.appendBuffer(data);
                 if (parserError) {
                     throw parserError;
@@ -127,9 +130,30 @@ export async function streamMotionArt(video, url, token, info, signal) {
                 offset = Math.max(next ?? 0, offset + data.byteLength);
             }
             const track = metadata?.videoTracks[0];
-            const mime = track && 'video/mp4; codecs="' + track.codec + '"';
-            if (!track || metadata.isFragmented || !track.nb_samples || !MediaSourceClass.isTypeSupported(mime)) {
+            const fragmented = metadata?.isFragmented;
+            // Existing fragments retain their original tracks, including muted
+            // audio. A SourceBuffer must declare every codec in that container.
+            const codecs = fragmented ? metadata.tracks.map(item => item.codec).join(',') : track?.codec;
+            const mime = 'video/mp4; codecs="' + codecs + '"';
+            if (!track || (!fragmented && !track.nb_samples) || !MediaSourceClass.isTypeSupported(mime)) {
                 throw new UnsupportedStreaming('Artwork is not supported by MSE.');
+            }
+            if (fragmented) {
+                offset = 0;
+                for (const data of prefix) {
+                    if (data.fileStart !== offset) {
+                        throw new UnsupportedStreaming('Fragment initialization is not at the beginning.');
+                    }
+                    offset += data.byteLength;
+                }
+                // Unlike normal MP4 sample tables, fragment timestamps live in
+                // the first moof. Read through it before normalizing the timeline.
+                while (!file.getTrackSamplesInfo(track.id)[0] && offset < info.Size) {
+                    const data = await readRange(offset);
+                    prefix.push(data);
+                    file.appendBuffer(data);
+                    offset += data.byteLength;
+                }
             }
 
             if (!mediaSource) {
@@ -138,21 +162,41 @@ export async function streamMotionArt(video, url, token, info, signal) {
                 video.src = URL.createObjectURL(mediaSource);
                 await opened;
                 sourceBuffer = mediaSource.addSourceBuffer(mime);
-                mediaSource.duration = track.duration / track.timescale;
+                // Empty-moov fragmented files often omit the duration. MSE
+                // determines their actual duration at endOfStream instead.
+                mediaSource.duration = track.duration > 0 ? track.duration / track.timescale : Infinity;
                 video.addEventListener('seeking', onSeek);
             }
+            if (fragmented) {
+                const firstSample = file.getTrackSamplesInfo(track.id)[0];
+                if (!firstSample) {
+                    throw new Error('Fragmented artwork contains no video samples.');
+                }
+                // Sequence mode normalizes nonzero timestamps and discontinuities
+                // between independently initialized fragments. Reset the group
+                // start on every loop so refill begins at zero again.
+                sourceBuffer.mode = 'sequence';
+                sourceBuffer.timestampOffset = 0;
+            }
 
-            file.onSegment = (id, user, data, sampleNumber, last) => {
-                queue.push(data);
-                file.releaseUsedSamples(id, sampleNumber);
-                complete = last;
-            };
-            // Small segments start quickly even if the original GOP is long.
-            // Only the video track is selected; motion artwork is always silent.
-            file.setSegmentOptions(track.id, null, { nbSamples: 30, rapAlignement: false });
-            queue.push(file.initializeSegmentation('per-track')[0].buffer);
-            offset = file.seek(target, true).offset;
-            file.start();
+            if (fragmented) {
+                // Fragmented MP4 is already an MSE byte stream. Append it in
+                // order, including partial moof/mdat boxes across range chunks.
+                queue.push(...prefix);
+                complete = offset === info.Size;
+            } else {
+                file.onSegment = (id, user, data, sampleNumber, last) => {
+                    queue.push(data);
+                    file.releaseUsedSamples(id, sampleNumber);
+                    complete = last;
+                };
+                // Small segments start quickly even if the original GOP is long.
+                // Only the video track is selected; motion artwork is always silent.
+                file.setSegmentOptions(track.id, null, { nbSamples: 30, rapAlignement: false });
+                queue.push(file.initializeSegmentation('per-track')[0].buffer);
+                offset = file.seek(target, true).offset;
+                file.start();
+            }
 
             while (seekTarget === null) {
                 while (queue.length && seekTarget === null) {
@@ -182,15 +226,21 @@ export async function streamMotionArt(video, url, token, info, signal) {
                 if (!Number.isSafeInteger(offset) || offset < 0 || offset >= info.Size) {
                     throw new Error('Motion artwork ended before all frames were received.');
                 }
-                const data = await readRange(offset);
-                const next = file.appendBuffer(data);
-                if (parserError) {
-                    throw parserError;
+                const data = await readRange(offset, fragmented ? FRAGMENT_CHUNK_SIZE : CHUNK_SIZE);
+                if (fragmented) {
+                    queue.push(data);
+                    offset += data.byteLength;
+                    complete = offset === info.Size;
+                } else {
+                    const next = file.appendBuffer(data);
+                    if (parserError) {
+                        throw parserError;
+                    }
+                    if (!complete && (!Number.isSafeInteger(next) || next <= offset)) {
+                        throw new Error('Motion artwork parser made no progress.');
+                    }
+                    offset = next;
                 }
-                if (!complete && (!Number.isSafeInteger(next) || next <= offset)) {
-                    throw new Error('Motion artwork parser made no progress.');
-                }
-                offset = next;
             }
             file.stop();
             target = seekTarget ?? 0;
@@ -200,6 +250,9 @@ export async function streamMotionArt(video, url, token, info, signal) {
             if (sourceBuffer.buffered.length) {
                 await updateBuffer(sourceBuffer, () => sourceBuffer.remove(0, mediaSource.duration), signal);
             }
+            // Seeks may interrupt a partial input fragment. Reset the native
+            // parser before appending a fresh initialization segment on a refill.
+            sourceBuffer.abort();
         }
         signal.throwIfAborted();
     } catch (error) {
@@ -212,7 +265,7 @@ export async function streamMotionArt(video, url, token, info, signal) {
     }
 }
 
-// Compatibility fallback for WebM, fragmented input, unsupported MSE codecs,
+// Compatibility fallback for WebM, unsupported MSE codecs,
 // and browsers without MSE. The original header-authenticated blob path remains.
 export async function loadMotionArt(video, url, token, info, signal) {
     if (await streamMotionArt(video, url, token, info, signal)) {
