@@ -21,13 +21,13 @@ dotnet build Jellyfin.Plugin.AnimatedAlbumArt.slnx -c Release
 dotnet test Jellyfin.Plugin.AnimatedAlbumArt.slnx -c Release
 ```
 
-Stop Jellyfin, create an `AnimatedAlbumArt_1.0.0.0` subdirectory in **your server's plugin directory**, and copy this file into it:
+Stop Jellyfin, create an `AnimatedAlbumArt_0.1.0.0` subdirectory in **your server's plugin directory**, and copy this file into it:
 
 ```text
 Jellyfin.Plugin.AnimatedAlbumArt/bin/Release/net10.0/Jellyfin.Plugin.AnimatedAlbumArt.dll
 ```
 
-Start Jellyfin again and confirm **Animated Album Art** appears under Dashboard → Plugins. Reload Jellyfin Web so the client script loads. Use the plugin directory for your installation rather than assuming a platform-specific path. For the Docker development server in this repository, it is `dev/data/config/plugins/AnimatedAlbumArt_1.0.0.0/` on the host.
+Start Jellyfin again and confirm **Animated Album Art** appears under Dashboard → Plugins. Reload Jellyfin Web so the client script loads. Use the plugin directory for your installation rather than assuming a platform-specific path. For the Docker development server in this repository, it is `dev/data/config/plugins/AnimatedAlbumArt_0.1.0.0/` on the host.
 
 Only the plugin DLL is needed for installation. Jellyfin supplies the framework and server dependencies; their runtime assets are excluded from the plugin project. Copy the matching PDB alongside the DLL when debugging.
 
@@ -208,13 +208,13 @@ mkdir -p artifacts
 /tmp/animated-album-art-packaging/bin/jprm plugin build . --dotnet-framework net10.0
 /tmp/animated-album-art-packaging/bin/jprm repo init artifacts/manifest.json
 /tmp/animated-album-art-packaging/bin/jprm repo add \
-  --plugin-url 'https://github.com/jellyfin-ai-labs/animated-album-artwork/releases/download/v1.0.0.0/animated-album-art_1.0.0.0.zip' \
+  --plugin-url 'https://github.com/jellyfin-ai-labs/animated-album-artwork/releases/download/v0.1.0.0/animated-album-art_0.1.0.0.zip' \
   artifacts/manifest.json artifacts/*.zip
 ```
 
 Use a new or empty `artifacts/` directory for each packaging run. The generated manifest includes the ZIP URL, checksum, plugin identity, version, and target ABI. Local generation prepares assets; it does not upload them.
 
-Publishing a GitHub release with a tag such as `v1.0.0.0` runs `.github/workflows/publish.yaml`: it checks out the tag, runs unit tests, packages that version, generates a manifest, and uploads both assets to that release using the repository's built-in token. Manual workflow dispatch accepts an existing release tag. Release tags must contain four numeric components with an optional `v` prefix. This workflow does not require Jellyfin's deployment secrets.
+Publishing a GitHub release with a tag such as `v0.1.0.0` runs `.github/workflows/publish.yaml`: it checks out the tag, runs unit tests, packages that version, generates a manifest, and uploads both assets to that release using the repository's built-in token. Manual workflow dispatch accepts an existing release tag. Release tags must contain four numeric components with an optional `v` prefix. This workflow does not require Jellyfin's deployment secrets.
 
 ## License
 

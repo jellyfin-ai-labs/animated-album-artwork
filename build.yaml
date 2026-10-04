@@ -1,7 +1,7 @@
 ---
 name: "Animated Album Art"
 guid: "0c8d1d43-0ad6-4d51-b5ac-b39b6f46fbcb"
-version: "1.0.0.0"
+version: "0.1.0.0"
 targetAbi: "12.1.0.0"
 framework: "net10.0"
 overview: "Animated album artwork for Jellyfin"

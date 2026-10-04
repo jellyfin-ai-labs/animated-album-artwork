@@ -15,7 +15,7 @@ if [ "${1:-}" = "--fresh" ]; then
 fi
 
 dotnet build "$repo/Jellyfin.Plugin.AnimatedAlbumArt" -c Release -o "$here/data/build" --nologo -v quiet
-plugin_dir="$here/data/config/plugins/AnimatedAlbumArt_1.0.0.0"
+plugin_dir="$here/data/config/plugins/AnimatedAlbumArt_0.1.0.0"
 mkdir -p "$plugin_dir"
 cp "$here/data/build/Jellyfin.Plugin.AnimatedAlbumArt.dll" "$plugin_dir/"
 
