@@ -23,7 +23,7 @@ dotnet build Jellyfin.Plugin.AnimatedAlbumArt.slnx -c Release
 dotnet test Jellyfin.Plugin.AnimatedAlbumArt.slnx -c Release
 ```
 
-Stop Jellyfin, create an `AnimatedAlbumArt_0.1.2.0` subdirectory in **your server's plugin directory**, and copy this file into it:
+Stop Jellyfin, create an `AnimatedAlbumArt_0.1.3.0` subdirectory in **your server's plugin directory**, and copy this file into it:
 
 ```text
 Jellyfin.Plugin.AnimatedAlbumArt/bin/Release/net10.0/Jellyfin.Plugin.AnimatedAlbumArt.dll
@@ -236,13 +236,13 @@ mkdir -p artifacts
 /tmp/animated-album-art-packaging/bin/jprm plugin build . --dotnet-framework net10.0
 /tmp/animated-album-art-packaging/bin/jprm repo init artifacts/manifest.json
 /tmp/animated-album-art-packaging/bin/jprm repo add \
-  --plugin-url 'https://github.com/jellyfin-ai-labs/animated-album-artwork/releases/download/v0.1.2/animated-album-art_0.1.2.0.zip' \
+  --plugin-url 'https://github.com/jellyfin-ai-labs/animated-album-artwork/releases/download/v0.1.3/animated-album-art_0.1.3.0.zip' \
   artifacts/manifest.json artifacts/*.zip
 ```
 
 Use a new or empty `artifacts/` directory for each packaging run. The generated manifest includes the ZIP URL, checksum, plugin identity, version, and target ABI. Local generation prepares assets; it does not upload them.
 
-Publishing a GitHub release with a tag such as `v0.1.2` runs `.github/workflows/publish.yaml`: it checks out the tag, verifies the bundled web client, runs unit tests, packages that version, generates a manifest, and uploads both assets to that release using the repository's built-in token. Manual workflow dispatch accepts an existing release tag. Release tags accept three or four numeric components with an optional `v` prefix; three-component tags use a trailing `.0` for the Jellyfin package version (`v0.1.2` → `0.1.2.0`). This workflow does not require Jellyfin's deployment secrets.
+Publishing a GitHub release with a tag such as `v0.1.3` runs `.github/workflows/publish.yaml`: it checks out the tag, verifies the bundled web client, runs unit tests, packages that version, generates a manifest, and uploads both assets to that release using the repository's built-in token. Manual workflow dispatch accepts an existing release tag. Release tags accept three or four numeric components with an optional `v` prefix; three-component tags use a trailing `.0` for the Jellyfin package version (`v0.1.3` → `0.1.3.0`). This workflow does not require Jellyfin's deployment secrets.
 
 After the assets upload successfully, the same job creates a GitHub App installation token scoped to `jellyfin-ai-labs/jellyfin-plugin-repo` with Contents: write permission and sends a `repository_dispatch` event of type `plugin-release`. A failed build or upload skips the notification. The App token is used only for the dispatch; packaging and release uploads continue to use the built-in token.
 
