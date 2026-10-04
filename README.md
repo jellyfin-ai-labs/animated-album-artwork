@@ -10,7 +10,9 @@ The static cover stays visible while the video loads, when playback fails, and w
 - The built-in presentation applies to **album detail pages in Jellyfin Web**. Other clients can use the API below to implement their own presentation. Album grids and now-playing screens are not animated by this script.
 - Albums must have a local filesystem directory accessible to the Jellyfin server. Discovery checks that directory, without searching subdirectories.
 - Videos are served unchanged. The plugin does not download, generate, convert, or transcode artwork. Playback depends on the browser's codec support.
-- The web script downloads the complete video before playing it, so short, compact files work best. The server API also supports byte-range streaming.
+- For ordinary MP4/MOV files with an MSE-compatible video codec, the web script starts playback using authenticated 1 MiB byte-range requests and Media Source Extensions. It reads metadata from the end when needed, so `faststart` is helpful but not required. The token stays in an authorization header; HTTP private-network installations do not need cookies or certificates.
+- Playback buffering targets eight seconds ahead and retains about five seconds behind, plus the current segment/keyframe boundaries. Old frames and parser sample data are released; loops/seeks refill evicted frames. Large files no longer require a complete download before playback, but still need sufficient bandwidth for their encoded bitrate. No server transcoding or quality reduction is performed.
+- WebM, already fragmented MP4, browsers without MSE, and codecs unsupported by MSE retain the header-authenticated full-download fallback. Browser codec support still determines whether they can play. Failed requests or decoding leave the static cover visible.
 
 ## Build and install
 
@@ -21,13 +23,13 @@ dotnet build Jellyfin.Plugin.AnimatedAlbumArt.slnx -c Release
 dotnet test Jellyfin.Plugin.AnimatedAlbumArt.slnx -c Release
 ```
 
-Stop Jellyfin, create an `AnimatedAlbumArt_0.1.0.0` subdirectory in **your server's plugin directory**, and copy this file into it:
+Stop Jellyfin, create an `AnimatedAlbumArt_0.1.1.0` subdirectory in **your server's plugin directory**, and copy this file into it:
 
 ```text
 Jellyfin.Plugin.AnimatedAlbumArt/bin/Release/net10.0/Jellyfin.Plugin.AnimatedAlbumArt.dll
 ```
 
-Start Jellyfin again and confirm **Animated Album Art** appears under Dashboard → Plugins. Reload Jellyfin Web so the client script loads. Use the plugin directory for your installation rather than assuming a platform-specific path. For the Docker development server in this repository, it is `dev/data/config/plugins/AnimatedAlbumArt_0.1.0.0/` on the host.
+Start Jellyfin again and confirm **Animated Album Art** appears under Dashboard → Plugins. Reload Jellyfin Web so the client script loads. Use the plugin directory for your installation rather than assuming a platform-specific path. For the Docker development server in this repository, it is `dev/data/config/plugins/AnimatedAlbumArt_Dev/` on the host.
 
 Only the plugin DLL is needed for installation. Jellyfin supplies the framework and server dependencies; their runtime assets are excluded from the plugin project. Copy the matching PDB alongside the DLL when debugging.
 
@@ -91,7 +93,7 @@ Use a Jellyfin user access token in the header:
 Authorization: MediaBrowser Token="<user-access-token>"
 ```
 
-Missing or invalid credentials on protected endpoints return `401`. The server also accepts `?ApiKey=<user-access-token>` for the video route, but header authentication avoids putting credentials in URLs and logs. The bundled client uses an authentication header and plays the downloaded video through a blob URL.
+Missing or invalid credentials on protected endpoints return `401`. The server also accepts `?ApiKey=<user-access-token>` for the video route, but header authentication avoids putting credentials in URLs and logs. The bundled client always uses an authentication header, including for byte-range requests. The video's local blob URL references MediaSource during streaming, or the complete downloaded file in compatibility fallback mode; it contains no credential.
 
 ### GET album artwork information
 
@@ -173,6 +175,16 @@ With `InjectWebClient` enabled, middleware adds a script tag to Jellyfin Web's i
 
 Read [.agents/AGENTS.md](.agents/AGENTS.md) before changing the plugin.
 
+The bundled web client is checked in and embedded in the plugin DLL, so installing and building the plugin does not require Node.js or a CDN. After changing web source or dependencies, use Node.js 24 or later:
+
+```sh
+npm ci
+npm test
+npm run build
+```
+
+Commit the regenerated `Web/client.bundle.js` together with source changes. CI verifies that it matches the pinned dependencies and source. MP4Box.js 2.4.1 supplies in-browser MP4/MOV parsing and fragmentation; its BSD-3-Clause license is included in the bundle. Tests use small synthetic H.264 fixtures to exercise parsing, ranges, looping, cleanup, and fallback.
+
 The local development environment requires Docker with Compose, .NET 10, `ffmpeg`, `curl`, and `jq`:
 
 ```sh
@@ -208,13 +220,13 @@ mkdir -p artifacts
 /tmp/animated-album-art-packaging/bin/jprm plugin build . --dotnet-framework net10.0
 /tmp/animated-album-art-packaging/bin/jprm repo init artifacts/manifest.json
 /tmp/animated-album-art-packaging/bin/jprm repo add \
-  --plugin-url 'https://github.com/jellyfin-ai-labs/animated-album-artwork/releases/download/v0.1.0.0/animated-album-art_0.1.0.0.zip' \
+  --plugin-url 'https://github.com/jellyfin-ai-labs/animated-album-artwork/releases/download/v0.1.1/animated-album-art_0.1.1.0.zip' \
   artifacts/manifest.json artifacts/*.zip
 ```
 
 Use a new or empty `artifacts/` directory for each packaging run. The generated manifest includes the ZIP URL, checksum, plugin identity, version, and target ABI. Local generation prepares assets; it does not upload them.
 
-Publishing a GitHub release with a tag such as `v0.1.0.0` runs `.github/workflows/publish.yaml`: it checks out the tag, runs unit tests, packages that version, generates a manifest, and uploads both assets to that release using the repository's built-in token. Manual workflow dispatch accepts an existing release tag. Release tags must contain four numeric components with an optional `v` prefix. This workflow does not require Jellyfin's deployment secrets.
+Publishing a GitHub release with a tag such as `v0.1.1` runs `.github/workflows/publish.yaml`: it checks out the tag, verifies the bundled web client, runs unit tests, packages that version, generates a manifest, and uploads both assets to that release using the repository's built-in token. Manual workflow dispatch accepts an existing release tag. Release tags accept three or four numeric components with an optional `v` prefix; three-component tags use a trailing `.0` for the Jellyfin package version (`v0.1.1` → `0.1.1.0`). This workflow does not require Jellyfin's deployment secrets.
 
 ## License
 

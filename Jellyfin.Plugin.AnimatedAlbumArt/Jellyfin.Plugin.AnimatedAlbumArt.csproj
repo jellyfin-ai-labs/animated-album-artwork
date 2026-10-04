@@ -31,8 +31,8 @@
   <ItemGroup>
     <None Remove="Configuration\configPage.html" />
     <EmbeddedResource Include="Configuration\configPage.html" />
-    <None Remove="Web\animatedAlbumArt.js" />
-    <EmbeddedResource Include="Web\animatedAlbumArt.js" />
+    <None Remove="Web\client.bundle.js" />
+    <EmbeddedResource Include="Web\client.bundle.js" LogicalName="Jellyfin.Plugin.AnimatedAlbumArt.Web.animatedAlbumArt.js" />
   </ItemGroup>
 
 </Project>

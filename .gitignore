@@ -4,3 +4,4 @@ obj/
 .idea/
 artifacts
 dev/data/
+node_modules/

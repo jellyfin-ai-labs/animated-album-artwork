@@ -15,7 +15,11 @@ if [ "${1:-}" = "--fresh" ]; then
 fi
 
 dotnet build "$repo/Jellyfin.Plugin.AnimatedAlbumArt" -c Release -o "$here/data/build" --nologo -v quiet
-plugin_dir="$here/data/config/plugins/AnimatedAlbumArt_0.1.0.0"
+# Keep a single development install so old version folders cannot mask a build.
+plugin_dir="$here/data/config/plugins/AnimatedAlbumArt_Dev"
+for old_plugin in "$here"/data/config/plugins/AnimatedAlbumArt_[0-9]*; do
+  if [ -d "$old_plugin" ]; then rm -rf "$old_plugin"; fi
+done
 mkdir -p "$plugin_dir"
 cp "$here/data/build/Jellyfin.Plugin.AnimatedAlbumArt.dll" "$plugin_dir/"
 

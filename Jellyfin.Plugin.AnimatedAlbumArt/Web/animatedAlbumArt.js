@@ -1,3 +1,5 @@
+import { loadMotionArt } from './motionArtStreaming.js';
+
 /*
  * Animated Album Art - Jellyfin Web client.
  *
@@ -70,22 +72,6 @@
         video.remove();
     }
 
-    // Downloads with the token in a header and plays from a blob URL, so the token
-    // never appears in a URL where proxies and server logs would record it. Motion
-    // artwork is small, and the static cover stays visible until the video plays.
-    function loadVideo(apiClient, id, info, signal) {
-        var url = apiClient.getUrl('AnimatedAlbumArt/Albums/' + id + '/Video', { tag: info.Tag });
-        return fetch(url, {
-            headers: { Authorization: 'MediaBrowser Token="' + apiClient.accessToken() + '"' },
-            signal: signal
-        }).then(function (response) {
-            if (!response.ok) {
-                throw new Error('Motion artwork request failed: ' + response.status);
-            }
-            return response.blob();
-        });
-    }
-
     function attach(apiClient, container, id, info) {
         var key = id + ':' + info.Tag;
         if (container.querySelector('video.' + VIDEO_CLASS) || failures.has(key)) {
@@ -120,11 +106,8 @@
         }
         container.appendChild(video);
 
-        loadVideo(apiClient, id, info, video.animatedAlbumArtAbort.signal).then(function (blob) {
-            if (video.isConnected) {
-                video.src = URL.createObjectURL(blob);
-            }
-        }).catch(function () {
+        var url = apiClient.getUrl('AnimatedAlbumArt/Albums/' + id + '/Video', { tag: info.Tag });
+        loadMotionArt(video, url, apiClient.accessToken(), info, video.animatedAlbumArtAbort.signal).catch(function () {
             // A video removed mid-download was aborted, not failed.
             if (video.isConnected) {
                 fail();

@@ -9,7 +9,7 @@ Read `README.md` for supported behavior, setup, and the complete endpoint contra
 - `MotionArt/` owns filesystem sidecar discovery, extension priority, MIME types, and file tags. Check files on each lookup so changes need no rescan; restrict discovery to the album directory.
 - `Api/` owns authenticated album lookup and HTTP responses. Resolve albums through the caller's Jellyfin user and check visibility before returning metadata or bytes. Diagnostics require the elevation policy; only the client script is public.
 - `Diagnostics/` owns ffprobe execution and advisory profile checks. Keep probe arguments in `ProcessStartInfo.ArgumentList`, honor cancellation, and retain a bounded timeout. Profile failures must not block video serving.
-- `Web/` owns response-time script injection and album detail playback. Preserve the static fallback, reduced-motion preference, authenticated header-based downloads, and disposal of hidden videos and blob URLs. The browser downloads complete files, so account for memory and bandwidth when changing playback.
+- `Web/` owns response-time script injection and album detail playback. Preserve the static fallback, reduced-motion preference, header authentication on every fetch, and disposal of hidden videos and blob URLs. Keep MSE buffering and parser sample memory bounded; loops must refill evicted frames. Compatibility fallback downloads complete files. Regenerate the checked-in bundle after web source changes using the README's development commands.
 - `Configuration/` owns persisted options and the embedded dashboard page. Keep its property names and defaults aligned with the C# configuration and README.
 
 ## Change and verify
@@ -18,7 +18,7 @@ Read `README.md` for supported behavior, setup, and the complete endpoint contra
 2. Keep the plugin GUID stable and aligned between `Plugin.cs`, `configPage.html`, and `build.yaml`. For compatibility changes, align Jellyfin package references, the target framework, and package target ABI. Keep release metadata and default assembly versions consistent; release packaging overrides the version from its tag.
 3. Run `dotnet test Jellyfin.Plugin.AnimatedAlbumArt.slnx -c Release` after C# changes. Add regression coverage for changed discovery, injection, or profile behavior where existing tests do not cover it.
 4. For server integration changes, build and install with `dev/run.sh`, then run `dev/test-server.sh`. These checks mutate the disposable test library and settings. Use `--fresh` only when a reset of `dev/data/` is intended.
-5. For web changes, verify playback on an album detail page, navigation away, reduced motion, and a broken-video static fallback. Server integration tests verify script delivery and injection, not browser playback.
+5. For web changes, run the JavaScript tests and verify browser playback before a large file finishes downloading, looping after eviction, navigation away, reduced motion, and broken-video and full-download fallbacks. Server integration tests verify script delivery and injection, not browser playback.
 6. For packaging changes, build a ZIP and manifest with the README's JPRM commands and inspect their identity, version, ABI, artifact contents, URL, and checksum. State whether a workflow was only checked locally or actually executed on GitHub.
 7. Update the README's API documentation whenever routes, authentication, response fields, or status codes change. Finish with the changes made, checks run, and any unverified runtime prerequisites.
 
