@@ -79,3 +79,20 @@ jobs:
 
       - name: Upload release assets
         run: gh release upload "$RELEASE_TAG" artifacts/*.zip artifacts/manifest.json --repo "$GITHUB_REPOSITORY" --clobber
+
+      - name: Create catalog notification token
+        id: catalog-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.PLUGIN_REPO_APP_CLIENT_ID }}
+          private-key: ${{ secrets.PLUGIN_REPO_APP_PRIVATE_KEY }}
+          owner: jellyfin-ai-labs
+          repositories: jellyfin-plugin-repo
+          permission-contents: write
+
+      - name: Notify central plugin catalog
+        env:
+          GH_TOKEN: ${{ steps.catalog-token.outputs.token }}
+        run: |
+          gh api --method POST repos/jellyfin-ai-labs/jellyfin-plugin-repo/dispatches \
+            -f event_type=plugin-release
