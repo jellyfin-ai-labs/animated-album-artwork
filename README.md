@@ -228,6 +228,12 @@ Use a new or empty `artifacts/` directory for each packaging run. The generated 
 
 Publishing a GitHub release with a tag such as `v0.1.2` runs `.github/workflows/publish.yaml`: it checks out the tag, verifies the bundled web client, runs unit tests, packages that version, generates a manifest, and uploads both assets to that release using the repository's built-in token. Manual workflow dispatch accepts an existing release tag. Release tags accept three or four numeric components with an optional `v` prefix; three-component tags use a trailing `.0` for the Jellyfin package version (`v0.1.2` → `0.1.2.0`). This workflow does not require Jellyfin's deployment secrets.
 
+After the assets upload successfully, the same job creates a GitHub App installation token scoped to `jellyfin-ai-labs/jellyfin-plugin-repo` with Contents: write permission and sends a `repository_dispatch` event of type `plugin-release`. A failed build or upload skips the notification. The App token is used only for the dispatch; packaging and release uploads continue to use the built-in token.
+
+Configure the existing GitHub App's credentials as organization Actions variable `PLUGIN_REPO_APP_CLIENT_ID` (the App's Client ID) and organization Actions secret `PLUGIN_REPO_APP_PRIVATE_KEY` (the complete PEM private key), with selected-repository access granted to `animated-album-artwork` for both. The App must be installed on the destination catalog repository with Contents: read/write permission; webhooks are not required.
+
+The central catalog's updater must be published on its default branch and accept `repository_dispatch` events of type `plugin-release`. It owns merging and committing the catalog manifest, with weekly and manual updates as fallbacks. Uploaded release assets and a successful dispatch do not confirm that the separate catalog update has completed; check the central updater's workflow run. A notification failure fails the publishing job after the assets have already uploaded, so inspect the failed step and rerun publishing for the existing release tag after fixing credentials or permissions. Prereleases can send notifications, but the central catalog excludes them.
+
 ## License
 
 [GNU General Public License v3.0](LICENSE).
