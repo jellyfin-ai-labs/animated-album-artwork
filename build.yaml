@@ -1,7 +1,7 @@
 ---
 name: "Animated Album Art"
 guid: "0c8d1d43-0ad6-4d51-b5ac-b39b6f46fbcb"
-version: "0.1.3.0"
+version: "0.1.4.0"
 targetAbi: "12.1.0.0"
 framework: "net10.0"
 overview: "Animated album artwork for Jellyfin"
@@ -13,6 +13,4 @@ owner: "reefside-ai-labs"
 artifacts:
 - "Jellyfin.Plugin.AnimatedAlbumArt.dll"
 changelog: >
-  Generate smaller H.264 playback copies in Jellyfin's cache without changing
-  original artwork. Add bounded background conversion, cache limits and a
-  preparation task. Preserve authenticated ranges and pin playback revisions.
+  Refresh release metadata and packaging for the Reefside AI Labs plugin catalog.
