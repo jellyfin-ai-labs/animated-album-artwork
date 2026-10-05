@@ -9,7 +9,7 @@ description: >
   Discovers cover-motion.mp4/.mov sidecars in album folders and serves
   them as animated album artwork.
 category: "General"
-owner: "jellyfin-ai-labs"
+owner: "reefside-ai-labs"
 artifacts:
 - "Jellyfin.Plugin.AnimatedAlbumArt.dll"
 changelog: >

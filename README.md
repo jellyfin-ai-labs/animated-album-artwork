@@ -38,7 +38,7 @@ Only the plugin DLL is needed for installation. Jellyfin supplies the framework 
 The release workflow produces a plugin ZIP and a Jellyfin `manifest.json` release asset. Once a stable release has been published and its workflow has completed, add this repository URL under Dashboard → Plugins → Repositories:
 
 ```text
-https://github.com/jellyfin-ai-labs/animated-album-artwork/releases/latest/download/manifest.json
+https://github.com/reefside-ai-labs/animated-album-artwork/releases/latest/download/manifest.json
 ```
 
 Then install Animated Album Art from the catalog and restart Jellyfin. For a specific release, including a prerelease, use `/releases/download/<tag>/manifest.json` instead of `/releases/latest/download/manifest.json`. Each manifest describes the single release packaged by that workflow; the latest URL follows GitHub's latest stable release.
@@ -236,7 +236,7 @@ mkdir -p artifacts
 /tmp/animated-album-art-packaging/bin/jprm plugin build . --dotnet-framework net10.0
 /tmp/animated-album-art-packaging/bin/jprm repo init artifacts/manifest.json
 /tmp/animated-album-art-packaging/bin/jprm repo add \
-  --plugin-url 'https://github.com/jellyfin-ai-labs/animated-album-artwork/releases/download/v0.1.3/animated-album-art_0.1.3.0.zip' \
+  --plugin-url 'https://github.com/reefside-ai-labs/animated-album-artwork/releases/download/v0.1.3/animated-album-art_0.1.3.0.zip' \
   artifacts/manifest.json artifacts/*.zip
 ```
 
@@ -244,7 +244,7 @@ Use a new or empty `artifacts/` directory for each packaging run. The generated 
 
 Publishing a GitHub release with a tag such as `v0.1.3` runs `.github/workflows/publish.yaml`: it checks out the tag, verifies the bundled web client, runs unit tests, packages that version, generates a manifest, and uploads both assets to that release using the repository's built-in token. Manual workflow dispatch accepts an existing release tag. Release tags accept three or four numeric components with an optional `v` prefix; three-component tags use a trailing `.0` for the Jellyfin package version (`v0.1.3` → `0.1.3.0`). This workflow does not require Jellyfin's deployment secrets.
 
-After the assets upload successfully, the same job creates a GitHub App installation token scoped to `jellyfin-ai-labs/jellyfin-plugin-repo` with Contents: write permission and sends a `repository_dispatch` event of type `plugin-release`. A failed build or upload skips the notification. The App token is used only for the dispatch; packaging and release uploads continue to use the built-in token.
+After the assets upload successfully, the same job creates a GitHub App installation token scoped to `reefside-ai-labs/jellyfin-plugin-repo` with Contents: write permission and sends a `repository_dispatch` event of type `plugin-release`. A failed build or upload skips the notification. The App token is used only for the dispatch; packaging and release uploads continue to use the built-in token.
 
 Configure the existing GitHub App's credentials as organization Actions variable `PLUGIN_REPO_APP_CLIENT_ID` (the App's Client ID) and organization Actions secret `PLUGIN_REPO_APP_PRIVATE_KEY` (the complete PEM private key), with selected-repository access granted to `animated-album-artwork` for both. The App must be installed on the destination catalog repository with Contents: read/write permission; webhooks are not required.
 

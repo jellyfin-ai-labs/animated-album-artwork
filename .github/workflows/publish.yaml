@@ -86,7 +86,7 @@ jobs:
         with:
           client-id: ${{ vars.PLUGIN_REPO_APP_CLIENT_ID }}
           private-key: ${{ secrets.PLUGIN_REPO_APP_PRIVATE_KEY }}
-          owner: jellyfin-ai-labs
+          owner: reefside-ai-labs
           repositories: jellyfin-plugin-repo
           permission-contents: write
 
@@ -94,5 +94,5 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.catalog-token.outputs.token }}
         run: |
-          gh api --method POST repos/jellyfin-ai-labs/jellyfin-plugin-repo/dispatches \
+          gh api --method POST repos/reefside-ai-labs/jellyfin-plugin-repo/dispatches \
             -f event_type=plugin-release
