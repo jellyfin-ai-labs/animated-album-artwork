@@ -1,3 +1,7 @@
+<p align="center">
+    <img src="./images/animated-album-artwork.png" alt="Animated Album Artwork" height="400" />
+</p>
+
 # Animated Album Art for Jellyfin
 
 Animated Album Art plays looping video artwork over the static cover on Jellyfin Web album detail pages. Put a `cover-motion.mp4` or `cover-motion.mov` file in an album folder; the plugin discovers it and serves it through authenticated server endpoints.
