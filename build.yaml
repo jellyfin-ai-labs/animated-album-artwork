@@ -1,7 +1,8 @@
 ---
 name: "Animated Album Art"
 guid: "0c8d1d43-0ad6-4d51-b5ac-b39b6f46fbcb"
-version: "0.1.4.0"
+imageUrl: "https://raw.githubusercontent.com/reefside-ai-labs/animated-album-artwork/master/images/animated-album-artwork.png"
+version: "0.1.5.0"
 targetAbi: "12.1.0.0"
 framework: "net10.0"
 overview: "Animated album artwork for Jellyfin"
@@ -13,4 +14,4 @@ owner: "reefside-ai-labs"
 artifacts:
 - "Jellyfin.Plugin.AnimatedAlbumArt.dll"
 changelog: >
-  Refresh release metadata and packaging for the Reefside AI Labs plugin catalog.
+  Add the new plugin image to the Jellyfin plugin catalog.
